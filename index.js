@@ -3,15 +3,17 @@ const cors = require("cors");
 require("dotenv").config();
 const { Server } = require("socket.io");
 const { createServer } = require("node:http");
-const { MongoClient, ServerApiVersion } = require("mongodb");
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const app = express();
 const server = createServer(app);
+const helmet = require("helmet");
 
 // const port =process.env.PORT || 48000;
 
 // middlewer
 app.use(cors());
 app.use(express.json());
+app.use(helmet());
 
 const io = new Server(server, {
   cors: {
@@ -35,16 +37,44 @@ async function run() {
     // Connect the client to the server	(optional starting in v4.7)
     await client.connect();
 
+    const mydb = client.db("flexshipitChats");
+    const messagesCollection = mydb.collection("chats");
+
+    const chatsRoom = "chatRoom";
+
     io.on("connection", (socket) => {
       console.log("User connected:", socket.id);
 
-      socket.on("sendMessage", (message) => {
-        io.emit("receiveMessage", message);
+      socket.on("userName", async (userName) => {
+        await socket.join(chatsRoom);
+
+        socket.to(chatsRoom).emit("roomNotice", userName);
+
+        // send old messages ONLY ON JOIN
+        const messages = await messagesCollection
+          .find()
+          .sort({ _id: 1 })
+          // .limit(50)
+          .toArray();
+
+        socket.emit("oldMessages", messages);
       });
 
-      // socket.on("disconnect", () => {
-      //   console.log("User disconnected:", socket.id);
-      // });
+      socket.on("sendMessage", async (message) => {
+        await messagesCollection.insertOne(message);
+
+        // send ONLY new message
+        io.to(chatsRoom).emit("receiveMessage", message);
+      });
+
+      socket.on("typing", (userName) => {
+        // sender বাদে সবাই পাবে
+        socket.to(chatsRoom).emit("typer", userName);
+      });
+
+      socket.on("disconnect", () => {
+        console.log("User disconnected:", socket.id);
+      });
     });
 
     // Send a ping to confirm a successful connection
