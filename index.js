@@ -17,7 +17,9 @@ app.use(helmet());
 
 const io = new Server(server, {
   cors: {
-    origin: "*",
+    origin: "https://flexship-it.vercel.app",
+    methods: ["GET", "POST"],
+  
   },
 });
 
@@ -61,6 +63,7 @@ async function run() {
       });
 
       socket.on("sendMessage", async (message) => {
+        message.time = new Date();
         await messagesCollection.insertOne(message);
 
         // send ONLY new message
