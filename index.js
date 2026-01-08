@@ -17,7 +17,7 @@ app.use(helmet());
 
 const io = new Server(server, {
   cors: {
-    origin: "https://flexship-it.vercel.app",
+    origin: process.env.fronend_URL,
     // origin: "*",
     methods: ["GET", "POST"],
   
